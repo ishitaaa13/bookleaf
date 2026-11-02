@@ -75,36 +75,26 @@ function App() {
     setError('')
   }
 
+  // Display the correct dashboard after login
   if (account) {
     if (account.role !== 'author') {
       return (
-        <main className="portal">
-          <header className="topbar">
-            <div className="brand">
-              <span className="brand-mark">B</span>
-              <span>BookLeaf</span>
-            </div>
-            <button className="logout-button" onClick={handleLogout}>
-              Log out
-            </button>
-          </header>
-          <section className="welcome-card">
-            <p className="eyebrow">BOOKLEAF PORTAL</p>
-            <h1>Welcome back!</h1>
-            <p className="welcome-description">
-              Signed in as {account.email}. Your account role is {account.role}.
-              The Admin Dashboard will be implemented in the next phase.
-            </p>
-          </section>
-        </main>
+        <AdminDashboard
+          account={account}
+          onLogout={handleLogout}
+        />
       )
     }
 
     return (
-      <AuthorDashboard account={account} onLogout={handleLogout} />
+      <AuthorDashboard
+        account={account}
+        onLogout={handleLogout}
+      />
     )
   }
 
+  // Display the login page when nobody is logged in
   return (
     <main className="login-page">
       <section className="login-visual">
@@ -687,6 +677,340 @@ function AuthorDashboard({ account, onLogout }) {
   )
 }
 
+function AdminDashboard({ account, onLogout }) {
+  const [overview, setOverview] = useState(null)
+  const [authors, setAuthors] = useState([])
+  const [tickets, setTickets] = useState([])
+  const [statusFilter, setStatusFilter] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
+  const [priorityFilter, setPriorityFilter] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [activeTab, setActiveTab] = useState('overview')
+
+  async function loadAdminDashboard() {
+    setLoading(true)
+    setError('')
+
+    try {
+      const [overviewData, authorData, ticketData] = await Promise.all([
+        apiRequest('/api/admin/overview'),
+        apiRequest('/api/authors'),
+        apiRequest('/api/admin/tickets'),
+      ])
+
+      setOverview(overviewData)
+      setAuthors(Array.isArray(authorData) ? authorData : [])
+      setTickets(Array.isArray(ticketData) ? ticketData : [])
+    } catch (err) {
+      setError(err.message || 'Unable to load admin dashboard.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadAdminDashboard()
+  }, [])
+
+  const filteredTickets = tickets.filter((ticket) => {
+    return (
+      (!statusFilter || ticket.status === statusFilter) &&
+      (!categoryFilter || ticket.category === categoryFilter) &&
+      (!priorityFilter || ticket.priority === priorityFilter)
+    )
+  })
+
+  const categories = [...new Set(tickets.map((ticket) => ticket.category))]
+  const statuses = [...new Set(tickets.map((ticket) => ticket.status))]
+  const priorities = [...new Set(tickets.map((ticket) => ticket.priority))]
+
+  return (
+    <main className="portal dashboard">
+      <header className="topbar">
+        <div className="brand">
+          <span className="brand-mark">B</span>
+          <span>BookLeaf</span>
+        </div>
+
+        <div className="topbar-right">
+          <span className="user-email">{account.email}</span>
+          <button className="logout-button" onClick={onLogout}>
+            Log out
+          </button>
+        </div>
+      </header>
+
+      <div className="dashboard-layout">
+        <aside className="sidebar">
+          <p className="sidebar-label">ADMIN WORKSPACE</p>
+
+          {[
+            ['overview', 'Overview', '⌂'],
+            ['authors', 'Authors', '♙'],
+            ['tickets', 'Support Tickets', '✉'],
+          ].map(([tab, label, icon]) => (
+            <button
+              key={tab}
+              className={`nav-item ${activeTab === tab ? 'active' : ''}`}
+              onClick={() => setActiveTab(tab)}
+            >
+              <span>{icon}</span>
+              {label}
+              {tab === 'tickets' && tickets.length > 0 && (
+                <span className="nav-count">{tickets.length}</span>
+              )}
+            </button>
+          ))}
+
+          <div className="sidebar-account">
+            <div className="avatar">A</div>
+            <div>
+              <strong>Administrator</strong>
+              <span>{account.email}</span>
+            </div>
+          </div>
+        </aside>
+
+        <section className="dashboard-main">
+          <div className="page-heading">
+            <div>
+              <p className="eyebrow">BOOKLEAF ADMINISTRATION</p>
+              <h1>
+                {activeTab === 'overview'
+                  ? 'Admin Overview'
+                  : activeTab === 'authors'
+                    ? 'Authors'
+                    : 'Support Tickets'}
+              </h1>
+              <p className="page-subtitle">
+                {activeTab === 'overview'
+                  ? 'Monitor publishing activity and support requests.'
+                  : activeTab === 'authors'
+                    ? 'View all registered authors and their books.'
+                    : 'Review and manage author support requests.'}
+              </p>
+            </div>
+
+            <button
+              className="secondary-button"
+              onClick={loadAdminDashboard}
+              disabled={loading}
+            >
+              {loading ? 'Refreshing...' : '↻ Refresh'}
+            </button>
+          </div>
+
+          {error && (
+            <div className="dashboard-alert error-message">{error}</div>
+          )}
+
+          {loading ? (
+            <div className="loading-card">Loading admin dashboard...</div>
+          ) : (
+            <>
+              {activeTab === 'overview' && overview && (
+                <>
+                  <div className="stats-grid">
+                    <StatCard
+                      label="Total authors"
+                      value={overview.authors ?? 0}
+                      icon="♙"
+                    />
+                    <StatCard
+                      label="Total books"
+                      value={overview.books ?? 0}
+                      icon="▤"
+                    />
+                    <StatCard
+                      label="Support tickets"
+                      value={overview.tickets ?? 0}
+                      icon="✉"
+                    />
+                  </div>
+
+                  <div className="content-card">
+                    <div className="card-heading">
+                      <div>
+                        <h2>Recent support tickets</h2>
+                        <p>Latest requests submitted by authors.</p>
+                      </div>
+                      <button
+                        className="text-button"
+                        onClick={() => setActiveTab('tickets')}
+                      >
+                        View all
+                      </button>
+                    </div>
+
+                    {tickets.length === 0 ? (
+                      <EmptyState message="There are no support tickets yet." />
+                    ) : (
+                      <AdminTicketTable tickets={tickets.slice(0, 5)} />
+                    )}
+                  </div>
+
+                  <div className="content-card">
+                    <div className="card-heading">
+                      <div>
+                        <h2>Registered authors</h2>
+                        <p>Authors currently registered on BookLeaf.</p>
+                      </div>
+                      <button
+                        className="text-button"
+                        onClick={() => setActiveTab('authors')}
+                      >
+                        View all
+                      </button>
+                    </div>
+
+                    <AdminAuthorTable authors={authors.slice(0, 5)} />
+                  </div>
+                </>
+              )}
+
+              {activeTab === 'authors' && (
+                <div className="content-card">
+                  <div className="card-heading">
+                    <div>
+                      <h2>All authors</h2>
+                      <p>{authors.length} registered author(s).</p>
+                    </div>
+                  </div>
+                  <AdminAuthorTable authors={authors} />
+                </div>
+              )}
+
+              {activeTab === 'tickets' && (
+                <div className="content-card">
+                  <div className="card-heading">
+                    <div>
+                      <h2>All support tickets</h2>
+                      <p>{filteredTickets.length} ticket(s) found.</p>
+                    </div>
+                  </div>
+
+                  <div className="ticket-filters">
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                    >
+                      <option value="">All statuses</option>
+                      {statuses.map((status) => (
+                        <option key={status} value={status}>{status}</option>
+                      ))}
+                    </select>
+
+                    <select
+                      value={categoryFilter}
+                      onChange={(e) => setCategoryFilter(e.target.value)}
+                    >
+                      <option value="">All categories</option>
+                      {categories.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
+                      value={priorityFilter}
+                      onChange={(e) => setPriorityFilter(e.target.value)}
+                    >
+                      <option value="">All priorities</option>
+                      {priorities.map((priority) => (
+                        <option key={priority} value={priority}>
+                          {priority}
+                        </option>
+                      ))}
+                    </select>
+
+                    <button
+                      className="text-button"
+                      onClick={() => {
+                        setStatusFilter('')
+                        setCategoryFilter('')
+                        setPriorityFilter('')
+                      }}
+                    >
+                      Clear filters
+                    </button>
+                  </div>
+
+                  {filteredTickets.length === 0 ? (
+                    <EmptyState message="No tickets match these filters." />
+                  ) : (
+                    <AdminTicketTable tickets={filteredTickets} />
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </section>
+      </div>
+    </main>
+  )
+}
+
+function AdminAuthorTable({ authors }) {
+  return (
+    <div className="table-scroll">
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th>Author ID</th>
+            <th>Author name</th>
+            <th>Email address</th>
+            <th>Books</th>
+          </tr>
+        </thead>
+        <tbody>
+          {authors.map((author) => (
+            <tr key={author.author_id}>
+              <td>{author.author_id}</td>
+              <td className="table-title">{author.name}</td>
+              <td>{author.email}</td>
+              <td>{author.book_count}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function AdminTicketTable({ tickets }) {
+  return (
+    <div className="table-scroll">
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th>Ticket</th>
+            <th>Author ID</th>
+            <th>Subject</th>
+            <th>Category</th>
+            <th>Priority</th>
+            <th>Status</th>
+            <th>Assigned to</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tickets.map((ticket) => (
+            <tr key={ticket.ticket_id}>
+              <td>#{ticket.ticket_id}</td>
+              <td>{ticket.author_id}</td>
+              <td className="table-title">{ticket.subject}</td>
+              <td>{ticket.category}</td>
+              <td>{ticket.priority}</td>
+              <td><StatusBadge status={ticket.status} /></td>
+              <td>{ticket.assigned_to || 'Unassigned'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
 function StatCard({ label, value, icon }) {
   return (
     <div className="stat-card">

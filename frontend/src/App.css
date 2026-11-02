@@ -1071,3 +1071,26 @@ button {
     width: 100%;
   }
 }
+
+.ticket-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.ticket-filters select {
+  min-width: 150px;
+  padding: 10px 12px;
+  border: 1px solid #e4deed;
+  border-radius: 8px;
+  background: #fff;
+  color: #393047;
+  font: inherit;
+}
+
+.ticket-filters select:focus {
+  outline: 2px solid #a78bfa;
+  outline-offset: 2px;
+}
