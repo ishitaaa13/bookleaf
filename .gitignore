@@ -1,0 +1,27 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+*.db
+.pytest_cache/
+node_modules/
+dist/
+
+# Python virtual environments
+.venv312/
+venv/
+
+# Environment and secret files
+.env.*
+!.env.example
+
+# SQLite databases
+*.sqlite
+*.sqlite3
+
+# Python cache and test files
+.pytest_cache/
+.mypy_cache/
+
+# Editor files
+.vscode/

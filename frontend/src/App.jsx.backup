@@ -1,0 +1,192 @@
+import { useState } from 'react'
+import './App.css'
+
+const API_BASE_URL = 'http://127.0.0.1:8000'
+function App() {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [account, setAccount] = useState(null)
+
+  async function handleLogin(event) {
+    event.preventDefault()
+    setError('')
+    setLoading(true)
+
+    try {
+      
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type':'application/json',
+                    'Access-Control-Allow-Origin':'*',
+                    'Access-Control-Allow-Methods':'POST,PATCH,OPTIONS'
+        },
+        body: JSON.stringify({ email, password }),
+      })
+
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(
+          data.detail || `Login failed (${response.status}). Please try again.`,
+        )
+      }
+
+      if (!data.access_token) {
+        throw new Error('The server did not return an access token.')
+      }
+
+      const user = data.user || data.account || data
+
+      localStorage.setItem('bookleaf_access_token', data.access_token)
+      setAccount({
+        email: user.email || email,
+        role: user.role || data.role || 'User',
+      })
+      setPassword('')
+    } catch (err) {
+      setError(
+        err.message ||
+          'Unable to connect to the server. Check that the backend is running.',
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function handleLogout() {
+    localStorage.removeItem('bookleaf_access_token')
+    setAccount(null)
+    setEmail('')
+    setPassword('')
+    setError('')
+  }
+
+  if (account) {
+    return (
+      <main className="portal">
+        <header className="topbar">
+          <div className="brand">
+            <span className="brand-mark">B</span>
+            <span>BookLeaf</span>
+          </div>
+          <button className="logout-button" onClick={handleLogout}>
+            Log out
+          </button>
+        </header>
+
+        <section className="welcome-card">
+          <div className="welcome-icon">✓</div>
+          <p className="eyebrow">BOOKLEAF AUTHOR SUPPORT</p>
+          <h1>Welcome back!</h1>
+          <p className="welcome-description">
+            You are signed in as <strong>{account.email}</strong>.
+          </p>
+          <div className="account-details">
+            <span>Account role</span>
+            <strong>{account.role}</strong>
+          </div>
+          <p className="next-step">
+            Your login is working. The role-specific dashboard and ticket
+            management screens can be connected next.
+          </p>
+        </section>
+      </main>
+    )
+  }
+
+  return (
+    <main className="login-page">
+      <section className="login-visual">
+        <div className="visual-brand">
+          <span className="brand-mark">B</span>
+          <span>BookLeaf</span>
+        </div>
+
+        <div className="visual-content">
+          <div className="book-illustration" aria-hidden="true">
+            <div className="book book-back" />
+            <div className="book book-front">
+              <span className="book-leaf">❧</span>
+            </div>
+            <span className="spark spark-one">✦</span>
+            <span className="spark spark-two">✧</span>
+          </div>
+          <p className="visual-kicker">YOUR STORIES MATTER</p>
+          <h1>Every author deserves support.</h1>
+          <p className="visual-description">
+            One place to manage your books, get answers, and stay connected
+            with the BookLeaf support team.
+          </p>
+        </div>
+
+        <p className="visual-footer">Supporting your publishing journey.</p>
+      </section>
+
+      <section className="login-panel">
+        <div className="mobile-brand">
+          <span className="brand-mark">B</span>
+          <span>BookLeaf</span>
+        </div>
+
+        <div className="login-card">
+          <p className="eyebrow">AUTHOR SUPPORT PORTAL</p>
+          <h2>Welcome back</h2>
+          <p className="login-subtitle">
+            Sign in to access your BookLeaf account.
+          </p>
+
+          <form onSubmit={handleLogin}>
+            <label htmlFor="email">Email address</label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="username"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+            />
+
+            <div className="password-label">
+              <label htmlFor="password">Password</label>
+            </div>
+            <input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+            />
+
+            {error && (
+              <div className="error-message" role="alert">
+                {error}
+              </div>
+            )}
+
+            <button className="login-button" type="submit" disabled={loading}>
+              {loading ? 'Signing in…' : 'Sign in'}
+              {!loading && <span aria-hidden="true"> →</span>}
+            </button>
+          </form>
+
+          <div className="secure-note">
+            <span aria-hidden="true">⌑</span>
+            Your account information is handled securely.
+          </div>
+        </div>
+
+        <footer className="login-footer">
+          Need help? Contact your BookLeaf support team.
+        </footer>
+      </section>
+    </main>
+  )
+}
+
+export default App
