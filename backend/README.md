@@ -175,3 +175,9 @@ Run the seed script using the instructions in `backend/README.md` if the databas
 npm run build
 ```
 
+## Security Notes
+
+- This project is intended for local development and assignment evaluation.
+- Keep environment variables and secrets in `.env`.
+- Never commit `.env` or expose authentication secrets.
+- Review security configuration and harden the application before public deployment.
