@@ -20,9 +20,22 @@ async function apiRequest(path, options = {}) {
   const data = await response.json().catch(() => ({}))
 
   if (!response.ok) {
-    throw new Error(data.detail || `Request failed (${response.status})`)
-  }
+    const detail = data.detail
 
+    let errorMessage = `Request failed (${response.status})`
+
+    if (typeof detail === 'string') {
+      errorMessage = detail
+    } else if (Array.isArray(detail)) {
+      errorMessage = detail
+        .map((item) => item.msg || JSON.stringify(item))
+        .join(', ')
+    } else if (detail && typeof detail === 'object') {
+      errorMessage = detail.message || JSON.stringify(detail)
+    }
+
+    throw new Error(errorMessage)
+  }
   return data
 }
 
@@ -75,7 +88,7 @@ function App() {
     setError('')
   }
 
-  // Display the correct dashboard after login
+
   if (account) {
     if (account.role !== 'author') {
       return (
@@ -94,7 +107,7 @@ function App() {
     )
   }
 
-  // Display the login page when nobody is logged in
+
   return (
     <main className="login-page">
       <section className="login-visual">
@@ -201,7 +214,7 @@ function AuthorDashboard({ account, onLogout }) {
   const [ticketForm, setTicketForm] = useState({
     subject: '',
     description: '',
-    category: 'General',
+    category: 'General Inquiry',
     book_id: '',
   })
   const [loading, setLoading] = useState(true)
@@ -263,14 +276,14 @@ function AuthorDashboard({ account, onLogout }) {
           subject: ticketForm.subject,
           description: ticketForm.description,
           category: ticketForm.category,
-          book_id: ticketForm.book_id ? Number(ticketForm.book_id) : null,
+          book_id: ticketForm.book_id || null,
         }),
       })
 
       setTicketForm({
         subject: '',
         description: '',
-        category: 'General',
+        category: 'General Inquiry',
         book_id: '',
       })
       setShowTicketForm(false)
@@ -522,12 +535,12 @@ function AuthorDashboard({ account, onLogout }) {
                             setTicketForm({ ...ticketForm, category: e.target.value })
                           }
                         >
-                          <option>General</option>
-                          <option>Book Publishing</option>
-                          <option>Royalties</option>
-                          <option>Payments</option>
-                          <option>Technical Support</option>
-                          <option>Other</option>
+                          <option value="Royalty & Payments">Royalty & Payments</option>
+                          <option value="ISBN & Metadata Issues">ISBN & Metadata Issues</option>
+                          <option value="Printing & Quality">Printing & Quality</option>
+                          <option value="Distribution & Availability">Distribution & Availability</option>
+                          <option value="Book Status & Production Updates">Book Status & Production Updates</option>
+                          <option value="General Inquiry">General Inquiry</option>
                         </select>
 
                         <label htmlFor="ticket-book">Related book (optional)</label>
@@ -613,9 +626,8 @@ function AuthorDashboard({ account, onLogout }) {
                           replies.map((reply) => (
                             <div
                               key={reply.reply_id}
-                              className={`reply-bubble ${
-                                reply.sender_role === 'author' ? 'author-reply' : ''
-                              }`}
+                              className={`reply-bubble ${reply.sender_role === 'author' ? 'author-reply' : ''
+                                }`}
                             >
                               <div className="reply-meta">
                                 <strong>
