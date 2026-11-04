@@ -20,5 +20,4 @@ Follow `backend/README.md`.
 4. AI classification, priority scoring, and response drafting.
 5. React frontend, real-time/polling updates, tests, deployment, and complete documentation.
 
-## Security note
-This starter is for local development only. Do not deploy it publicly before access control and production hardening are added. Keep secrets in `.env` and never commit `.env`.
+
