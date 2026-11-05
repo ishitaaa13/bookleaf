@@ -1,0 +1,32 @@
+function AdminTicketTable({ tickets }) {
+  return (
+    <div className="table-scroll">
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th>Ticket</th>
+            <th>Author ID</th>
+            <th>Subject</th>
+            <th>Category</th>
+            <th>Priority</th>
+            <th>Status</th>
+            <th>Assigned to</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tickets.map((ticket) => (
+            <tr key={ticket.ticket_id}>
+              <td>#{ticket.ticket_id}</td>
+              <td>{ticket.author_id}</td>
+              <td className="table-title">{ticket.subject}</td>
+              <td>{ticket.category}</td>
+              <td>{ticket.priority}</td>
+              <td><StatusBadge status={ticket.status} /></td>
+              <td>{ticket.assigned_to || 'Unassigned'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}

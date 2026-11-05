@@ -24,11 +24,6 @@ from app.models import (
     InternalNote,
     UserAccount,
 )
-app = FastAPI(title="BookLeaf Author Support Portal")
-from fastapi import FastAPI, Depends, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-
-# Other existing imports remain unchanged
 
 app = FastAPI(title="BookLeaf Author Support Portal")
 
@@ -84,7 +79,6 @@ class LoginRequest(BaseModel):
     email: EmailStr
     password: str
 
-#@app.post("/api/auth/login")
 @app.post("/api/auth/login")
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
     user = db.scalar(
@@ -95,6 +89,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=401,
             detail="Invalid email or password",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     if not user.is_active:
@@ -104,37 +99,17 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         )
 
     return {
-    "access_token": create_access_token(user),
-    "token_type": "bearer",
-    "role": user.role,
-    "user": {
-        "user_id": user.user_id,
-        "email": user.email,
-        "role": user.role,
-        "author_id": user.author_id,
-    },
-    "expires_in": 1800,
-}
-
-    if (
-        user is None
-        or not user.is_active
-        or not verify_password(payload.password, user.password_hash)
-    ):
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid email or password.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    token = create_access_token(user)
-
-    return {
-        "access_token": token,
+        "access_token": create_access_token(user),
         "token_type": "bearer",
-        "expires_in": 1800,
         "role": user.role,
-    }    
+        "user": {
+            "user_id": user.user_id,
+            "email": user.email,
+            "role": user.role,
+            "author_id": user.author_id,
+        },
+        "expires_in": 1800,
+    }
 
 
 @app.get("/api/admin/overview")
@@ -466,6 +441,34 @@ def admin_reply(
         "message_text": reply.message,
         "created_at": reply.created_at,
     }
+@app.get("/api/admin/tickets/{ticket_id}/replies")
+def admin_view_replies(
+    ticket_id: int,
+    db: Session = Depends(get_db),
+    current_user: UserAccount = Depends(require_role("admin")),
+):
+    ticket = db.get(Ticket, ticket_id)
+
+    if ticket is None:
+        raise HTTPException(status_code=404, detail="Ticket not found.")
+
+    replies = db.scalars(
+        select(TicketReply)
+        .where(TicketReply.ticket_id == ticket_id)
+        .order_by(TicketReply.reply_id)
+    ).all()
+
+    return [
+        {
+            "reply_id": reply.reply_id,
+            "sender_role": reply.sender_role,
+            "message": reply.message,
+            "created_at": reply.created_at,
+        }
+        for reply in replies
+    ]
+
+
 @app.get("/api/author/tickets/{ticket_id}/replies")
 def author_view_replies(
     ticket_id: int,
@@ -492,8 +495,6 @@ def author_view_replies(
         }
         for reply in replies
     ]
-@app.post("/api/author/tickets/{ticket_id}/replies", status_code=201)
-
 @app.post("/api/admin/tickets/{ticket_id}/notes", status_code=201)
 def add_internal_note(
     ticket_id: int,
