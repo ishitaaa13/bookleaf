@@ -1094,3 +1094,180 @@ button {
   outline: 2px solid #a78bfa;
   outline-offset: 2px;
 }
+
+
+/* ADMIN TICKET DETAIL LAYOUT */
+
+.ticket-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 22px 0;
+}
+
+.ticket-detail-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 15px 17px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fcfbfe;
+}
+
+.ticket-detail-grid strong {
+  color: #777084;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.45px;
+  text-transform: uppercase;
+}
+
+.ticket-detail-grid span {
+  color: #302a40;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.admin-ticket-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  margin: 20px 0 26px;
+}
+
+.ticket-action-form {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+  padding: 17px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: #fff;
+}
+
+.ticket-action-form label {
+  display: flex;
+  flex: 1 1 145px;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  color: #625b70;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.ticket-action-form input,
+.ticket-action-form select {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 10px 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+  background: #fff;
+  color: #302a40;
+  font-size: 13px;
+}
+
+.ticket-action-form input:focus,
+.ticket-action-form select:focus {
+  border-color: var(--purple);
+  box-shadow: 0 0 0 3px rgba(112, 68, 184, 0.1);
+}
+
+.ticket-action-form button {
+  min-height: 42px;
+  white-space: nowrap;
+}
+
+.nested-card {
+  margin: 22px 0;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: #fff;
+}
+
+.nested-card h3 {
+  margin: 0 0 8px;
+  color: #302a40;
+  font-size: 17px;
+}
+
+.nested-card > p {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.internal-note,
+.ai-suggestion {
+  margin: 12px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: #faf8fd;
+}
+
+.internal-note strong,
+.ai-suggestion strong {
+  color: var(--purple-dark);
+}
+
+.internal-note p,
+.ai-suggestion p {
+  margin: 8px 0 0;
+  color: #393346;
+  font-size: 13px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.selected-ticket-row {
+  background: #f5effd !important;
+}
+
+.clickable-ticket-row {
+  cursor: pointer;
+}
+
+.clickable-ticket-row:focus-within,
+.clickable-ticket-row:focus {
+  outline: 2px solid #a78bfa;
+  outline-offset: -2px;
+}
+
+@media (max-width: 760px) {
+  .ticket-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-ticket-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .ticket-action-form {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ticket-action-form label {
+    flex-basis: auto;
+    width: 100%;
+  }
+
+  .ticket-action-form button {
+    width: 100%;
+  }
+
+  .nested-card {
+    padding: 17px;
+  }
+}

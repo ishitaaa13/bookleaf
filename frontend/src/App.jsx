@@ -697,11 +697,22 @@ function AdminDashboard({ account, onLogout }) {
   const [categoryFilter, setCategoryFilter] = useState('')
   const [priorityFilter, setPriorityFilter] = useState('')
   const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [activeTab, setActiveTab] = useState('overview')
+  const [selectedTicket, setSelectedTicket] = useState(null)
+  const [replies, setReplies] = useState([])
+  const [notes, setNotes] = useState([])
+  const [replyMessage, setReplyMessage] = useState('')
+  const [internalNote, setInternalNote] = useState('')
+  const [assignedTo, setAssignedTo] = useState('')
+  const [status, setStatus] = useState('')
+  const [priority, setPriority] = useState('')
+  const [aiSuggestion, setAiSuggestion] = useState(null)
 
-  async function loadAdminDashboard() {
-    setLoading(true)
+  async function loadAdminDashboard(showLoader = true) {
+    if (showLoader) setLoading(true)
     setError('')
 
     try {
@@ -711,31 +722,188 @@ function AdminDashboard({ account, onLogout }) {
         apiRequest('/api/admin/tickets'),
       ])
 
+      const nextTickets = Array.isArray(ticketData) ? ticketData : []
       setOverview(overviewData)
       setAuthors(Array.isArray(authorData) ? authorData : [])
-      setTickets(Array.isArray(ticketData) ? ticketData : [])
+      setTickets(nextTickets)
+
+      if (selectedTicket) {
+        const updatedSelected = nextTickets.find(
+          (ticket) => ticket.ticket_id === selectedTicket.ticket_id,
+        )
+        if (updatedSelected) {
+          setSelectedTicket(updatedSelected)
+          setAssignedTo(updatedSelected.assigned_to || '')
+          setStatus(updatedSelected.status || '')
+          setPriority(updatedSelected.priority || '')
+        }
+      }
     } catch (err) {
       setError(err.message || 'Unable to load admin dashboard.')
     } finally {
-      setLoading(false)
+      if (showLoader) setLoading(false)
     }
   }
 
   useEffect(() => {
     loadAdminDashboard()
+    // Initial dashboard load only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const filteredTickets = tickets.filter((ticket) => {
-    return (
-      (!statusFilter || ticket.status === statusFilter) &&
-      (!categoryFilter || ticket.category === categoryFilter) &&
-      (!priorityFilter || ticket.priority === priorityFilter)
-    )
-  })
+  async function openTicket(ticket) {
+    setSelectedTicket(ticket)
+    setActiveTab('tickets')
+    setReplies([])
+    setNotes([])
+    setReplyMessage('')
+    setInternalNote('')
+    setAiSuggestion(null)
+    setAssignedTo(ticket.assigned_to || '')
+    setStatus(ticket.status || '')
+    setPriority(ticket.priority || '')
+    setError('')
+    setNotice('')
 
-  const categories = [...new Set(tickets.map((ticket) => ticket.category))]
-  const statuses = [...new Set(tickets.map((ticket) => ticket.status))]
-  const priorities = [...new Set(tickets.map((ticket) => ticket.priority))]
+    try {
+      const [replyData, noteData] = await Promise.all([
+        apiRequest(`/api/admin/tickets/${ticket.ticket_id}/replies`),
+        apiRequest(`/api/admin/tickets/${ticket.ticket_id}/notes`),
+      ])
+      setReplies(Array.isArray(replyData) ? replyData : [])
+      setNotes(Array.isArray(noteData) ? noteData : [])
+    } catch (err) {
+      setError(err.message || 'Unable to load ticket conversation and notes.')
+    }
+  }
+
+  async function updateTicket(event) {
+    event.preventDefault()
+    if (!selectedTicket) return
+
+    setActionLoading(true)
+    setError('')
+    setNotice('')
+
+    try {
+      await apiRequest(`/api/admin/tickets/${selectedTicket.ticket_id}/update`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status, priority }),
+      })
+      setNotice('Ticket status and priority updated.')
+      await loadAdminDashboard(false)
+    } catch (err) {
+      setError(err.message || 'Unable to update ticket.')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  async function assignTicket(event) {
+    event.preventDefault()
+    if (!selectedTicket) return
+
+    setActionLoading(true)
+    setError('')
+    setNotice('')
+
+    try {
+      await apiRequest(`/api/admin/tickets/${selectedTicket.ticket_id}/assign`, {
+        method: 'PATCH',
+        body: JSON.stringify({ assigned_to: assignedTo.trim() || null }),
+      })
+      setNotice('Ticket assignment updated.')
+      await loadAdminDashboard(false)
+    } catch (err) {
+      setError(err.message || 'Unable to assign ticket.')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  async function sendAdminReply(event) {
+    event.preventDefault()
+    if (!selectedTicket || !replyMessage.trim()) return
+
+    setActionLoading(true)
+    setError('')
+    setNotice('')
+
+    try {
+      await apiRequest(`/api/admin/tickets/${selectedTicket.ticket_id}/replies`, {
+        method: 'POST',
+        body: JSON.stringify({ message: replyMessage.trim() }),
+      })
+      const data = await apiRequest(
+        `/api/admin/tickets/${selectedTicket.ticket_id}/replies`,
+      )
+      setReplies(Array.isArray(data) ? data : [])
+      setReplyMessage('')
+      setNotice('Your reply has been sent.')
+    } catch (err) {
+      setError(err.message || 'Unable to send reply.')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  async function addInternalNote(event) {
+    event.preventDefault()
+    if (!selectedTicket || !internalNote.trim()) return
+
+    setActionLoading(true)
+    setError('')
+    setNotice('')
+
+    try {
+      await apiRequest(`/api/admin/tickets/${selectedTicket.ticket_id}/notes`, {
+        method: 'POST',
+        body: JSON.stringify({ note: internalNote.trim() }),
+      })
+      const data = await apiRequest(
+        `/api/admin/tickets/${selectedTicket.ticket_id}/notes`,
+      )
+      setNotes(Array.isArray(data) ? data : [])
+      setInternalNote('')
+      setNotice('Internal note added.')
+    } catch (err) {
+      setError(err.message || 'Unable to add internal note.')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  async function requestAiAssist() {
+    if (!selectedTicket) return
+
+    setActionLoading(true)
+    setError('')
+    setNotice('')
+    setAiSuggestion(null)
+
+    try {
+      const data = await apiRequest(
+        `/api/admin/tickets/${selectedTicket.ticket_id}/ai-assist`,
+        { method: 'POST' },
+      )
+      setAiSuggestion(data)
+      setNotice('AI suggestions are ready. Review them before applying or sending.')
+    } catch (err) {
+      setError(err.message || 'Unable to generate AI assistance.')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const filteredTickets = tickets.filter((ticket) => (
+    (!statusFilter || ticket.status === statusFilter) &&
+    (!categoryFilter || ticket.category === categoryFilter) &&
+    (!priorityFilter || ticket.priority === priorityFilter)
+  ))
+
+  const categories = [...new Set(tickets.map((ticket) => ticket.category).filter(Boolean))]
+  const statuses = [...new Set(tickets.map((ticket) => ticket.status).filter(Boolean))]
+  const priorities = [...new Set(tickets.map((ticket) => ticket.priority).filter(Boolean))]
 
   return (
     <main className="portal dashboard">
@@ -744,19 +912,15 @@ function AdminDashboard({ account, onLogout }) {
           <span className="brand-mark">B</span>
           <span>BookLeaf</span>
         </div>
-
         <div className="topbar-right">
           <span className="user-email">{account.email}</span>
-          <button className="logout-button" onClick={onLogout}>
-            Log out
-          </button>
+          <button className="logout-button" onClick={onLogout}>Log out</button>
         </div>
       </header>
 
       <div className="dashboard-layout">
         <aside className="sidebar">
           <p className="sidebar-label">ADMIN WORKSPACE</p>
-
           {[
             ['overview', 'Overview', '⌂'],
             ['authors', 'Authors', '♙'],
@@ -765,7 +929,12 @@ function AdminDashboard({ account, onLogout }) {
             <button
               key={tab}
               className={`nav-item ${activeTab === tab ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => {
+                setActiveTab(tab)
+                setError('')
+                setNotice('')
+                if (tab !== 'tickets') setSelectedTicket(null)
+              }}
             >
               <span>{icon}</span>
               {label}
@@ -791,9 +960,7 @@ function AdminDashboard({ account, onLogout }) {
               <h1>
                 {activeTab === 'overview'
                   ? 'Admin Overview'
-                  : activeTab === 'authors'
-                    ? 'Authors'
-                    : 'Support Tickets'}
+                  : activeTab === 'authors' ? 'Authors' : 'Support Tickets'}
               </h1>
               <p className="page-subtitle">
                 {activeTab === 'overview'
@@ -803,19 +970,17 @@ function AdminDashboard({ account, onLogout }) {
                     : 'Review and manage author support requests.'}
               </p>
             </div>
-
             <button
               className="secondary-button"
-              onClick={loadAdminDashboard}
-              disabled={loading}
+              onClick={() => loadAdminDashboard()}
+              disabled={loading || actionLoading}
             >
               {loading ? 'Refreshing...' : '↻ Refresh'}
             </button>
           </div>
 
-          {error && (
-            <div className="dashboard-alert error-message">{error}</div>
-          )}
+          {error && <div className="dashboard-alert error-message" role="alert">{error}</div>}
+          {notice && <div className="dashboard-alert success-message" role="status">{notice}</div>}
 
           {loading ? (
             <div className="loading-card">Loading admin dashboard...</div>
@@ -824,21 +989,9 @@ function AdminDashboard({ account, onLogout }) {
               {activeTab === 'overview' && overview && (
                 <>
                   <div className="stats-grid">
-                    <StatCard
-                      label="Total authors"
-                      value={overview.authors ?? 0}
-                      icon="♙"
-                    />
-                    <StatCard
-                      label="Total books"
-                      value={overview.books ?? 0}
-                      icon="▤"
-                    />
-                    <StatCard
-                      label="Support tickets"
-                      value={overview.tickets ?? 0}
-                      icon="✉"
-                    />
+                    <StatCard label="Total authors" value={overview.authors ?? 0} icon="♙" />
+                    <StatCard label="Total books" value={overview.books ?? 0} icon="▤" />
+                    <StatCard label="Support tickets" value={overview.tickets ?? 0} icon="✉" />
                   </div>
 
                   <div className="content-card">
@@ -847,18 +1000,18 @@ function AdminDashboard({ account, onLogout }) {
                         <h2>Recent support tickets</h2>
                         <p>Latest requests submitted by authors.</p>
                       </div>
-                      <button
-                        className="text-button"
-                        onClick={() => setActiveTab('tickets')}
-                      >
+                      <button className="text-button" onClick={() => setActiveTab('tickets')}>
                         View all
                       </button>
                     </div>
-
                     {tickets.length === 0 ? (
                       <EmptyState message="There are no support tickets yet." />
                     ) : (
-                      <AdminTicketTable tickets={tickets.slice(0, 5)} />
+                      <AdminTicketTable
+                        tickets={tickets.slice(0, 5)}
+                        onSelectTicket={openTicket}
+                        selectedTicketId={selectedTicket?.ticket_id}
+                      />
                     )}
                   </div>
 
@@ -868,14 +1021,10 @@ function AdminDashboard({ account, onLogout }) {
                         <h2>Registered authors</h2>
                         <p>Authors currently registered on BookLeaf.</p>
                       </div>
-                      <button
-                        className="text-button"
-                        onClick={() => setActiveTab('authors')}
-                      >
+                      <button className="text-button" onClick={() => setActiveTab('authors')}>
                         View all
                       </button>
                     </div>
-
                     <AdminAuthorTable authors={authors.slice(0, 5)} />
                   </div>
                 </>
@@ -894,67 +1043,208 @@ function AdminDashboard({ account, onLogout }) {
               )}
 
               {activeTab === 'tickets' && (
-                <div className="content-card">
-                  <div className="card-heading">
-                    <div>
-                      <h2>All support tickets</h2>
-                      <p>{filteredTickets.length} ticket(s) found.</p>
+                <>
+                  {!selectedTicket ? (
+                    <div className="content-card">
+                      <div className="card-heading">
+                        <div>
+                          <h2>All support tickets</h2>
+                          <p>{filteredTickets.length} ticket(s) found.</p>
+                        </div>
+                      </div>
+
+                      <div className="ticket-filters">
+                        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                          <option value="">All statuses</option>
+                          {statuses.map((item) => <option key={item} value={item}>{item}</option>)}
+                        </select>
+                        <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+                          <option value="">All categories</option>
+                          {categories.map((item) => <option key={item} value={item}>{item}</option>)}
+                        </select>
+                        <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}>
+                          <option value="">All priorities</option>
+                          {priorities.map((item) => <option key={item} value={item}>{item}</option>)}
+                        </select>
+                        <button
+                          className="text-button"
+                          onClick={() => {
+                            setStatusFilter('')
+                            setCategoryFilter('')
+                            setPriorityFilter('')
+                          }}
+                        >
+                          Clear filters
+                        </button>
+                      </div>
+
+                      {filteredTickets.length === 0 ? (
+                        <EmptyState message="No tickets match these filters." />
+                      ) : (
+                        <AdminTicketTable
+                          tickets={filteredTickets}
+                          onSelectTicket={openTicket}
+                          selectedTicketId={selectedTicket?.ticket_id}
+                        />
+                      )}
                     </div>
-                  </div>
-
-                  <div className="ticket-filters">
-                    <select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                    >
-                      <option value="">All statuses</option>
-                      {statuses.map((status) => (
-                        <option key={status} value={status}>{status}</option>
-                      ))}
-                    </select>
-
-                    <select
-                      value={categoryFilter}
-                      onChange={(e) => setCategoryFilter(e.target.value)}
-                    >
-                      <option value="">All categories</option>
-                      {categories.map((category) => (
-                        <option key={category} value={category}>
-                          {category}
-                        </option>
-                      ))}
-                    </select>
-
-                    <select
-                      value={priorityFilter}
-                      onChange={(e) => setPriorityFilter(e.target.value)}
-                    >
-                      <option value="">All priorities</option>
-                      {priorities.map((priority) => (
-                        <option key={priority} value={priority}>
-                          {priority}
-                        </option>
-                      ))}
-                    </select>
-
-                    <button
-                      className="text-button"
-                      onClick={() => {
-                        setStatusFilter('')
-                        setCategoryFilter('')
-                        setPriorityFilter('')
-                      }}
-                    >
-                      Clear filters
-                    </button>
-                  </div>
-
-                  {filteredTickets.length === 0 ? (
-                    <EmptyState message="No tickets match these filters." />
                   ) : (
-                    <AdminTicketTable tickets={filteredTickets} />
+                    <div className="content-card conversation-card">
+                      <button
+                        className="text-button back-button"
+                        onClick={() => {
+                          setSelectedTicket(null)
+                          setReplies([])
+                          setNotes([])
+                          setAiSuggestion(null)
+                          setError('')
+                          setNotice('')
+                        }}
+                      >
+                        ← Back to tickets
+                      </button>
+
+                      <div className="conversation-heading">
+                        <div>
+                          <p className="eyebrow">TICKET #{selectedTicket.ticket_id}</p>
+                          <h2>{selectedTicket.subject}</h2>
+                          <p>{selectedTicket.description || selectedTicket.message || 'No description provided.'}</p>
+                        </div>
+                        <StatusBadge status={selectedTicket.status} />
+                      </div>
+
+                      <div className="ticket-detail-grid">
+                        <div><strong>Author ID</strong><p>{selectedTicket.author_id ?? '—'}</p></div>
+                        <div><strong>Category</strong><p>{selectedTicket.category || '—'}</p></div>
+                        <div><strong>Created</strong><p>{selectedTicket.created_at ? new Date(selectedTicket.created_at).toLocaleString() : '—'}</p></div>
+                        <div><strong>Last updated</strong><p>{selectedTicket.updated_at ? new Date(selectedTicket.updated_at).toLocaleString() : '—'}</p></div>
+                      </div>
+
+                      <div className="admin-ticket-actions">
+                        <form className="ticket-action-form" onSubmit={assignTicket}>
+                          <label htmlFor="ticket-assignee">Assign to (email)</label>
+                          <input
+                            id="ticket-assignee"
+                            type="email"
+                            value={assignedTo}
+                            onChange={(e) => setAssignedTo(e.target.value)}
+                            placeholder="admin@example.com"
+                          />
+                          <button className="secondary-button" type="submit" disabled={actionLoading}>
+                            Save assignment
+                          </button>
+                        </form>
+
+                        <form className="ticket-action-form" onSubmit={updateTicket}>
+                          <label htmlFor="ticket-status">Status</label>
+                          <select id="ticket-status" value={status} onChange={(e) => setStatus(e.target.value)} required>
+                            {['Open', 'In Progress', 'Resolved', 'Closed'].map((item) => (
+                              <option key={item} value={item}>{item}</option>
+                            ))}
+                          </select>
+                          <label htmlFor="ticket-priority">Priority</label>
+                          <select id="ticket-priority" value={priority} onChange={(e) => setPriority(e.target.value)} required>
+                            {['Low', 'Medium', 'High', 'Urgent'].map((item) => (
+                              <option key={item} value={item}>{item}</option>
+                            ))}
+                          </select>
+                          <button className="primary-button" type="submit" disabled={actionLoading}>
+                            Save changes
+                          </button>
+                        </form>
+                      </div>
+
+                      <div className="content-card nested-card">
+                        <div className="card-heading">
+                          <div><h3>Conversation</h3><p>Messages exchanged with the author.</p></div>
+                        </div>
+                        <div className="reply-list">
+                          {replies.length === 0 ? (
+                            <EmptyState message="No replies yet." />
+                          ) : replies.map((reply) => (
+                            <div key={reply.reply_id} className={`reply-bubble ${reply.sender_role === 'author' ? 'author-reply' : ''}`}>
+                              <div className="reply-meta">
+                                <strong>{reply.sender_role === 'author' ? 'Author' : 'BookLeaf Support'}</strong>
+                                <span>{reply.created_at ? new Date(reply.created_at).toLocaleString() : ''}</span>
+                              </div>
+                              <p>{reply.message}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <form className="reply-form" onSubmit={sendAdminReply}>
+                          <textarea
+                            rows="3"
+                            value={replyMessage}
+                            onChange={(e) => setReplyMessage(e.target.value)}
+                            placeholder="Write a reply to the author..."
+                            required
+                          />
+                          <button className="primary-button" type="submit" disabled={actionLoading || !replyMessage.trim()}>
+                            {actionLoading ? 'Working...' : 'Send reply'}
+                          </button>
+                        </form>
+                      </div>
+
+                      <div className="content-card nested-card">
+                        <div className="card-heading">
+                          <div><h3>Internal notes</h3><p>Visible to administrators, not to the author.</p></div>
+                        </div>
+                        <div className="reply-list">
+                          {notes.length === 0 ? (
+                            <EmptyState message="No internal notes yet." />
+                          ) : notes.map((note, index) => (
+                            <div key={note.note_id || `${note.created_at}-${index}`} className="reply-bubble internal-note">
+                              <div className="reply-meta">
+                                <strong>{note.admin_email || 'Administrator'}</strong>
+                                <span>{note.created_at ? new Date(note.created_at).toLocaleString() : ''}</span>
+                              </div>
+                              <p>{note.note}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <form className="reply-form" onSubmit={addInternalNote}>
+                          <textarea
+                            rows="3"
+                            value={internalNote}
+                            onChange={(e) => setInternalNote(e.target.value)}
+                            placeholder="Add an internal note..."
+                            required
+                          />
+                          <button className="secondary-button" type="submit" disabled={actionLoading || !internalNote.trim()}>
+                            Add internal note
+                          </button>
+                        </form>
+                      </div>
+
+                      <div className="content-card nested-card">
+                        <div className="card-heading">
+                          <div><h3>AI Assist</h3><p>Generate suggestions for this ticket. Review before using.</p></div>
+                          <button className="secondary-button" type="button" onClick={requestAiAssist} disabled={actionLoading}>
+                            {actionLoading ? 'Generating...' : 'Generate suggestions'}
+                          </button>
+                        </div>
+                        {aiSuggestion && (
+                          <div className="ai-suggestion">
+                            <p><strong>Suggested category:</strong> {aiSuggestion.suggested_category || '—'}</p>
+                            <p><strong>Suggested priority:</strong> {aiSuggestion.suggested_priority || '—'}</p>
+                            <p><strong>Mode:</strong> {aiSuggestion.ai_mode || '—'}</p>
+                            <label htmlFor="ai-response-draft">Suggested response draft</label>
+                            <textarea id="ai-response-draft" rows="5" readOnly value={aiSuggestion.response_draft || ''} />
+                            <button
+                              className="text-button"
+                              type="button"
+                              onClick={() => setReplyMessage(aiSuggestion.response_draft || '')}
+                              disabled={!aiSuggestion.response_draft}
+                            >
+                              Use draft in reply box
+                            </button>
+                            {aiSuggestion.message && <p>{aiSuggestion.message}</p>}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   )}
-                </div>
+                </>
               )}
             </>
           )}
@@ -991,7 +1281,7 @@ function AdminAuthorTable({ authors }) {
   )
 }
 
-function AdminTicketTable({ tickets }) {
+function AdminTicketTable({ tickets, onSelectTicket, selectedTicketId }) {
   return (
     <div className="table-scroll">
       <table className="data-table">
@@ -1008,7 +1298,12 @@ function AdminTicketTable({ tickets }) {
         </thead>
         <tbody>
           {tickets.map((ticket) => (
-            <tr key={ticket.ticket_id}>
+            <tr
+              key={ticket.ticket_id}
+              onClick={() => onSelectTicket(ticket)}
+              className={selectedTicketId === ticket.ticket_id ? 'selected-ticket-row' : 'clickable-ticket-row'}
+              style={{ cursor: 'pointer' }}
+            >
               <td>#{ticket.ticket_id}</td>
               <td>{ticket.author_id}</td>
               <td className="table-title">{ticket.subject}</td>
@@ -1023,6 +1318,7 @@ function AdminTicketTable({ tickets }) {
     </div>
   )
 }
+
 function StatCard({ label, value, icon }) {
   return (
     <div className="stat-card">

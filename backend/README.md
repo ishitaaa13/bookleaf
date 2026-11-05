@@ -181,3 +181,23 @@ npm run build
 - Keep environment variables and secrets in `.env`.
 - Never commit `.env` or expose authentication secrets.
 - Review security configuration and harden the application before public deployment.
+
+## Application Screenshots
+
+### Admin Dashboard
+
+![Admin Frontend](docs/screenshots/admin.frontend.png)
+
+![Admin Frontend - Additional View](docs/screenshots/admin.frontend2.png)
+
+### Author Dashboard
+
+![Author Frontend](docs/screenshots/author.frontend.png)
+
+![Author Frontend - Additional View](docs/screenshots/author.frontend2.png)
+
+### Backend API Documentation
+
+![Backend API - Screenshot 1](docs/screenshots/backend1.png)
+
+![Backend API - Screenshot 2](docs/screenshots/backend2.png)
